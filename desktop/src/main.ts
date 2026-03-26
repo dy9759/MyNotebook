@@ -15,7 +15,7 @@ function createWindow(): BrowserWindow {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: 'EverMemOS Notebook',
+    title: 'SaySo Notebook',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -60,7 +60,7 @@ async function showSplash(win: BrowserWindow): Promise<void> {
       </style>
     </head>
     <body>
-      <h1>EverMemOS Notebook</h1>
+      <h1>SaySo Notebook</h1>
       <div class="spinner"></div>
       <div class="status">Starting services...</div>
     </body>

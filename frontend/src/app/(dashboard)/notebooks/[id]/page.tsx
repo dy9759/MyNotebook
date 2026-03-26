@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { NotebookHeader } from '../components/NotebookHeader'
 import { SourcesAndNotesColumn } from '../components/SourcesAndNotesColumn'
 import { ChatColumn } from '../components/ChatColumn'
+import { StudioColumn } from '../components/StudioColumn'
 import { useNotebook } from '@/lib/hooks/use-notebooks'
 import { useNotebookSources } from '@/lib/hooks/use-sources'
 import { useNotes } from '@/lib/hooks/use-notes'
@@ -15,7 +16,7 @@ import { useIsDesktop } from '@/lib/hooks/use-media-query'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, MessageSquare } from 'lucide-react'
+import { FileText, MessageSquare, Sparkles } from 'lucide-react'
 
 export type ContextMode = 'off' | 'insights' | 'full'
 
@@ -43,13 +44,13 @@ export default function NotebookPage() {
   const { data: notes, isLoading: notesLoading } = useNotes(notebookId)
 
   // Get collapse states for dynamic layout
-  const { sourcesCollapsed } = useNotebookColumnsStore()
+  const { sourcesCollapsed, studioCollapsed } = useNotebookColumnsStore()
 
   // Detect desktop to avoid double-mounting ChatColumn
   const isDesktop = useIsDesktop()
 
-  // Mobile tab state (Sources+Notes or Chat)
-  const [mobileActiveTab, setMobileActiveTab] = useState<'content' | 'chat'>('chat')
+  // Mobile tab state (Sources+Notes, Chat, or Studio)
+  const [mobileActiveTab, setMobileActiveTab] = useState<'content' | 'chat' | 'studio'>('chat')
 
   // Context selection state
   const [contextSelections, setContextSelections] = useState<ContextSelections>({
@@ -133,15 +134,19 @@ export default function NotebookPage() {
           {!isDesktop && (
             <>
               <div className="lg:hidden mb-4">
-                <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'content' | 'chat')}>
-                  <TabsList className="grid w-full grid-cols-2">
+                <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'content' | 'chat' | 'studio')}>
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="content" className="gap-2">
                       <FileText className="h-4 w-4" />
-                      {t.navigation.sources} & {t.common.notes}
+                      {t.navigation.sources}
                     </TabsTrigger>
                     <TabsTrigger value="chat" className="gap-2">
                       <MessageSquare className="h-4 w-4" />
                       {t.common.chat}
+                    </TabsTrigger>
+                    <TabsTrigger value="studio" className="gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Studio
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -175,19 +180,22 @@ export default function NotebookPage() {
                     sourcesLoading={sourcesLoading}
                   />
                 )}
+                {mobileActiveTab === 'studio' && (
+                  <StudioColumn notebookId={notebookId} />
+                )}
               </div>
             </>
           )}
 
-          {/* Desktop: Two-column layout (Sources+Notes | Chat) */}
+          {/* Desktop: Three-column layout (Sources+Notes | Chat | Studio) */}
           <div className={cn(
-            'hidden lg:flex h-full min-h-0 gap-6 transition-all duration-150',
+            'hidden lg:flex h-full min-h-0 gap-4 transition-all duration-150',
             'flex-row'
           )}>
-            {/* Combined Sources & Notes Column */}
+            {/* Sources & Notes Column - Left */}
             <div className={cn(
-              'transition-all duration-150',
-              sourcesCollapsed ? 'w-12 flex-shrink-0' : 'flex-none basis-2/5'
+              'transition-all duration-150 flex-shrink-0',
+              sourcesCollapsed ? 'w-12' : 'w-[280px]'
             )}>
               <SourcesAndNotesColumn
                 sources={sources}
@@ -207,14 +215,22 @@ export default function NotebookPage() {
               />
             </div>
 
-            {/* Chat Column - takes remaining space */}
-            <div className="transition-all duration-150 flex-1 min-w-0 lg:pr-6 lg:-mr-6">
+            {/* Chat Column - Center (takes remaining space) */}
+            <div className="transition-all duration-150 flex-1 min-w-0">
               <ChatColumn
                 notebookId={notebookId}
                 contextSelections={contextSelections}
                 sources={sources}
                 sourcesLoading={sourcesLoading}
               />
+            </div>
+
+            {/* Studio Column - Right */}
+            <div className={cn(
+              'transition-all duration-150 flex-shrink-0',
+              studioCollapsed ? 'w-12' : 'w-[280px]'
+            )}>
+              <StudioColumn notebookId={notebookId} />
             </div>
           </div>
         </div>

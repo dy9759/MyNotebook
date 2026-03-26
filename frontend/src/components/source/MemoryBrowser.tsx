@@ -13,9 +13,12 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Search, Brain, Globe, Terminal, Import } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Loader2, Search, Brain, Globe, Terminal, Import, X, ArrowLeft } from 'lucide-react'
 import { useMemoryBrowse, useMemorySearch, useImportMemories, useMemoryHubStatus } from '@/lib/hooks/use-memories'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { formatDistanceToNow } from 'date-fns'
+import { getDateLocale } from '@/lib/utils/date-locale'
 import type { MemoryItem } from '@/lib/types/memory'
 
 interface MemoryBrowserProps {
@@ -37,6 +40,30 @@ function getMemoryTypeLabel(value: string, t: any): string {
     : value === 'event_log' ? 'eventLog'
     : 'foresight'
   return t.memories?.[key] || MEMORY_TYPE_LABELS[value] || value
+}
+
+/** Format timestamp as localized relative time using date-fns */
+function formatRelativeTime(timestamp: string, language: string): string {
+  return formatDistanceToNow(new Date(timestamp), {
+    addSuffix: true,
+    locale: getDateLocale(language),
+  })
+}
+
+/** Get a localized time-based group label for memory items */
+function getTimeGroupLabel(timestamp: string, language: string, t: any): string {
+  const now = new Date()
+  const date = new Date(timestamp)
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffHours < 24) return t.memories?.today || 'Today'
+  if (diffDays < 2) return t.memories?.yesterday || 'Yesterday'
+  return formatDistanceToNow(date, {
+    addSuffix: true,
+    locale: getDateLocale(language),
+  })
 }
 
 function OriginIcon({ origin }: { origin: string }) {
@@ -74,20 +101,16 @@ function MemoryCard({
   memory,
   selected,
   onToggle,
+  onViewDetail,
+  language,
 }: {
   memory: MemoryItem
   selected: boolean
   onToggle: () => void
+  onViewDetail: () => void
+  language: string
 }) {
-  const timestamp = memory.timestamp
-    ? new Date(memory.timestamp).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null
+  const relativeTime = memory.timestamp ? formatRelativeTime(memory.timestamp, language) : null
 
   return (
     <div
@@ -96,12 +119,15 @@ function MemoryCard({
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50'
       }`}
-      onClick={onToggle}
+      onClick={(e) => {
+        onViewDetail()
+      }}
     >
       <div className="flex items-start gap-3">
         <Checkbox
           checked={selected}
           onCheckedChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
           className="mt-1"
         />
         <div className="flex-1 min-w-0">
@@ -115,8 +141,8 @@ function MemoryCard({
             </p>
           )}
           <div className="flex items-center gap-2 mt-1.5">
-            {timestamp && (
-              <span className="text-xs text-muted-foreground">{timestamp}</span>
+            {relativeTime && (
+              <span className="text-xs text-muted-foreground">{relativeTime}</span>
             )}
             {memory.group_name && (
               <span className="text-xs text-muted-foreground">
@@ -135,12 +161,86 @@ function MemoryCard({
   )
 }
 
+/** Full-screen detail view for a single memory item */
+function MemoryDetailView({
+  memory,
+  onBack,
+}: {
+  memory: MemoryItem
+  onBack: () => void
+}) {
+  const timestamp = memory.timestamp
+    ? new Date(memory.timestamp).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+        <Button variant="ghost" size="sm" onClick={onBack} className="h-7 px-2">
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+      </div>
+
+      {/* Title & metadata */}
+      <div className="flex-shrink-0 mb-3">
+        <h3 className="text-base font-semibold mb-2">{memory.title}</h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <OriginBadge origin={memory.source_origin} />
+          {timestamp && (
+            <span className="text-xs text-muted-foreground">{timestamp}</span>
+          )}
+          {memory.group_name && (
+            <Badge variant="outline" className="text-xs">{memory.group_name}</Badge>
+          )}
+          {memory.memory_type && (
+            <Badge variant="secondary" className="text-xs">{memory.memory_type}</Badge>
+          )}
+        </div>
+        {memory.keywords && memory.keywords.length > 0 && (
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
+            {memory.keywords.map((kw, i) => (
+              <Badge key={i} variant="outline" className="text-[10px]">{kw}</Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Summary */}
+      {memory.summary && (
+        <div className="flex-shrink-0 mb-3 p-3 bg-muted rounded-lg">
+          <p className="text-xs font-medium text-muted-foreground mb-1">Summary</p>
+          <p className="text-sm">{memory.summary}</p>
+        </div>
+      )}
+
+      {/* Full content */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="p-3 border rounded-lg">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Full Content</p>
+          <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+            {memory.content}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function MemoryBrowser({ open, onOpenChange, notebookId }: MemoryBrowserProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [activeTab, setActiveTab] = useState('episodic_memory')
   const [searchInput, setSearchInput] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [detailMemory, setDetailMemory] = useState<MemoryItem | null>(null)
 
   // Debounce search: wait 400ms after user stops typing
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -213,11 +313,12 @@ export function MemoryBrowser({ open, onOpenChange, notebookId }: MemoryBrowserP
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
     setSelectedIds(new Set())
+    setDetailMemory(null)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
@@ -225,55 +326,81 @@ export function MemoryBrowser({ open, onOpenChange, notebookId }: MemoryBrowserP
           </DialogTitle>
         </DialogHeader>
 
-        {/* Search bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t.memories?.searchPlaceholder || 'Search your memories...'}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        {/* Show detail view if a memory is selected for viewing */}
+        {detailMemory ? (
+          <div className="flex-1 overflow-y-auto min-h-0 max-h-[60vh] pr-1">
+            <MemoryDetailView
+              memory={detailMemory}
+              onBack={() => setDetailMemory(null)}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Search bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t.memories?.searchPlaceholder || 'Search your memories...'}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="pl-9"
+              />
+            </div>
 
-        {/* Memory type tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-3">
-            {MEMORY_TYPE_VALUES.map((value) => (
-              <TabsTrigger key={value} value={value}>
-                {getMemoryTypeLabel(value, t)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+            {/* Memory type tabs */}
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col flex-1 min-h-0">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+                {MEMORY_TYPE_VALUES.map((value) => (
+                  <TabsTrigger key={value} value={value}>
+                    {getMemoryTypeLabel(value, t)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-          {MEMORY_TYPE_VALUES.map((value) => (
-            <TabsContent key={value} value={value} className="mt-0">
-              {/* Memory list */}
-              <div className="flex-1 overflow-y-auto max-h-[45vh] space-y-2 py-2">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              {MEMORY_TYPE_VALUES.map((value) => (
+                <TabsContent key={value} value={value} className="mt-0 flex-1 min-h-0">
+                  {/* Memory list - scrollable */}
+                  <div className="overflow-y-auto max-h-[50vh] space-y-2 py-2 pr-1 scrollbar-thin">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : memories.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground text-sm">
+                        {isSearching
+                          ? 'No memories found for this query'
+                          : 'No memories available'}
+                      </div>
+                    ) : (
+                      (() => {
+                    let lastGroup = ''
+                    return memories.map((memory) => {
+                      const group = memory.timestamp ? getTimeGroupLabel(memory.timestamp, language, t) : ''
+                      const showGroupHeader = group !== lastGroup
+                      lastGroup = group
+                      return (
+                        <div key={memory.id}>
+                          {showGroupHeader && group && (
+                            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-3 mb-1 first:mt-0">{group}</h5>
+                          )}
+                          <MemoryCard
+                            memory={memory}
+                            selected={selectedIds.has(memory.id)}
+                            onToggle={() => toggleSelection(memory.id)}
+                            onViewDetail={() => setDetailMemory(memory)}
+                            language={language}
+                          />
+                        </div>
+                      )
+                    })
+                  })()
+                    )}
                   </div>
-                ) : memories.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground text-sm">
-                    {isSearching
-                      ? 'No memories found for this query'
-                      : 'No memories available'}
-                  </div>
-                ) : (
-                  memories.map((memory) => (
-                    <MemoryCard
-                      key={memory.id}
-                      memory={memory}
-                      selected={selectedIds.has(memory.id)}
-                      onToggle={() => toggleSelection(memory.id)}
-                    />
-                  ))
-                )}
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </>
+        )}
 
         <DialogFooter className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">

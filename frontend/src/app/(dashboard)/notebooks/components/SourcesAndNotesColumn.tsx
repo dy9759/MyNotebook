@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { SourceListResponse, NoteResponse } from '@/lib/types/api'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -67,6 +68,7 @@ export function SourcesAndNotesColumn({
   fetchNextPage,
 }: SourcesAndNotesColumnProps) {
   const { t, language } = useTranslation()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'sources' | 'notes'>('sources')
 
   // Source dialogs
@@ -160,19 +162,19 @@ export function SourcesAndNotesColumn({
             <div className="flex items-center justify-between gap-2">
               {/* Tabs for switching */}
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'sources' | 'notes')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="sources" className="text-xs gap-1.5 px-3">
-                    <FileText className="h-3.5 w-3.5" />
+                <TabsList className="h-7">
+                  <TabsTrigger value="sources" className="text-[11px] gap-1 px-2">
+                    <FileText className="h-3 w-3" />
                     {t.navigation.sources}
                     {sourceCount > 0 && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">{sourceCount}</Badge>
+                      <Badge variant="secondary" className="h-3.5 px-1 text-[9px] ml-0.5">{sourceCount}</Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="notes" className="text-xs gap-1.5 px-3">
-                    <StickyNote className="h-3.5 w-3.5" />
+                  <TabsTrigger value="notes" className="text-[11px] gap-1 px-2">
+                    <StickyNote className="h-3 w-3" />
                     {t.common.notes}
                     {noteCount > 0 && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-1">{noteCount}</Badge>
+                      <Badge variant="secondary" className="h-3.5 px-1 text-[9px] ml-0.5">{noteCount}</Badge>
                     )}
                   </TabsTrigger>
                 </TabsList>
@@ -183,10 +185,10 @@ export function SourcesAndNotesColumn({
                 {activeTab === 'sources' ? (
                   <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-7 text-xs">
-                        <Plus className="h-3.5 w-3.5 mr-1" />
+                      <Button size="sm" variant="outline" className="h-6 text-[11px] px-2">
+                        <Plus className="h-3 w-3 mr-0.5" />
                         {t.sources.addSource}
-                        <ChevronDown className="h-3 w-3 ml-1" />
+                        <ChevronDown className="h-2.5 w-2.5 ml-0.5" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -194,12 +196,12 @@ export function SourcesAndNotesColumn({
                         <Plus className="h-4 w-4 mr-2" />
                         {t.sources.addSource}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setDropdownOpen(false); setAddExistingDialogOpen(true) }}>
+                      <DropdownMenuItem onClick={() => { setDropdownOpen(false); router.push(`/sources?from=${notebookId}`) }}>
                         <Link2 className="h-4 w-4 mr-2" />
                         {t.sources.addExistingTitle}
                       </DropdownMenuItem>
                       {memoryHubStatus?.connected && (
-                        <DropdownMenuItem onClick={() => { setDropdownOpen(false); setMemoryBrowserOpen(true) }}>
+                        <DropdownMenuItem onClick={() => { setDropdownOpen(false); router.push(`/sources?tab=memories&from=${notebookId}`) }}>
                           <Brain className="h-4 w-4 mr-2" />
                           {t.memories?.addFromMemory || 'Add from Memory'}
                         </DropdownMenuItem>
@@ -210,10 +212,10 @@ export function SourcesAndNotesColumn({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
+                    className="h-6 text-[11px] px-2"
                     onClick={() => { setEditingNote(null); setShowAddNoteDialog(true) }}
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    <Plus className="h-3 w-3 mr-0.5" />
                     {t.common.writeNote}
                   </Button>
                 )}

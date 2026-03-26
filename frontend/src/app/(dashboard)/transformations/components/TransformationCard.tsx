@@ -10,6 +10,7 @@ import { ChevronDown, ChevronRight, Trash2, Wand2, Edit } from 'lucide-react'
 import { Transformation } from '@/lib/types/transformations'
 import { useDeleteTransformation } from '@/lib/hooks/use-transformations'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { getTransformationLabel } from '@/lib/utils/transformation-labels'
 import { cn } from '@/lib/utils'
 
 interface TransformationCardProps {
@@ -19,7 +20,7 @@ interface TransformationCardProps {
 }
 
 export function TransformationCard({ transformation, onPlayground, onEdit }: TransformationCardProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const deleteTransformation = useDeleteTransformation()
@@ -43,7 +44,7 @@ export function TransformationCard({ transformation, onPlayground, onEdit }: Tra
                     <ChevronRight className="h-5 w-5" />
                   )}
                   <div className="flex flex-col">
-                    <span className="font-semibold">{transformation.name}</span>
+                    <span className="font-semibold">{getTransformationLabel(transformation.name, language)}</span>
                     {!isExpanded && transformation.description && (
                       <span className="text-sm text-muted-foreground">{transformation.description}</span>
                     )}

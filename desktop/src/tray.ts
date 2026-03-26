@@ -17,7 +17,7 @@ export class TrayManager {
     // Use a simple template image for the tray
     const icon = nativeImage.createEmpty()
     this.tray = new Tray(icon)
-    this.tray.setToolTip('EverMemOS Notebook')
+    this.tray.setToolTip('SaySo Notebook')
     this.updateStatus('starting')
 
     this.tray.on('click', () => {
@@ -43,7 +43,7 @@ export class TrayManager {
 
     const svc = this.serviceManager.status
     const contextMenu = Menu.buildFromTemplate([
-      { label: `EverMemOS Notebook — ${statusLabels[status]}`, enabled: false },
+      { label: `SaySo Notebook — ${statusLabels[status]}`, enabled: false },
       { type: 'separator' },
       { label: `SurrealDB: ${svc.surrealdb}`, enabled: false },
       { label: `API: ${svc.api}`, enabled: false },
@@ -65,6 +65,6 @@ export class TrayManager {
     ])
 
     this.tray.setContextMenu(contextMenu)
-    this.tray.setToolTip(`EverMemOS Notebook — ${statusLabels[status]}`)
+    this.tray.setToolTip(`SaySo Notebook — ${statusLabels[status]}`)
   }
 }

@@ -1,7 +1,7 @@
 {
-  "name": "evermemos-notebook",
+  "name": "sayso-notebook",
   "version": "0.1.0",
-  "description": "EverMemOS Notebook - Desktop AI Research Assistant with Memory",
+  "description": "SaySo Notebook - Desktop AI Research Assistant with Memory",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsc && electron .",
@@ -20,8 +20,8 @@
     "@types/node": "^22.0.0"
   },
   "build": {
-    "appId": "com.evermemos.notebook",
-    "productName": "EverMemOS Notebook",
+    "appId": "com.sayso.notebook",
+    "productName": "SaySo Notebook",
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg", "zip"]

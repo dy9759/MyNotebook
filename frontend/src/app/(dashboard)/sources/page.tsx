@@ -1,25 +1,42 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { sourcesApi } from '@/lib/api/sources'
+import { memoriesApi } from '@/lib/api/memories'
 import { SourceListResponse } from '@/lib/types/api'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { EmptyState } from '@/components/common/EmptyState'
 import { AppShell } from '@/components/layout/AppShell'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { FileText, Link as LinkIcon, Upload, AlignLeft, Trash2, ArrowUpDown } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { FileText, Link as LinkIcon, Upload, AlignLeft, Trash2, ArrowUpDown, Brain, ArrowLeft, BookOpen, Search as SearchIcon } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { AddToNotebookDialog } from '@/components/sources/AddToNotebookDialog'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { getDateLocale } from '@/lib/utils/date-locale'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getApiErrorKey } from '@/lib/utils/error-handler'
+import { MemoryTimeline } from '@/app/(dashboard)/memories/components/MemoryTimeline'
 
 export default function SourcesPage() {
   const { t, language } = useTranslation()
+  const searchParams = useSearchParams()
+  const fromNotebook = searchParams?.get('from') || null
+  const urlTab = searchParams?.get('tab')
+  const [activeTab, setActiveTab] = useState<'sources' | 'memories'>(urlTab === 'memories' ? 'memories' : 'sources')
+  const { data: hubStatus } = useQuery({
+    queryKey: ['memories', 'status'],
+    queryFn: () => memoriesApi.status(),
+    staleTime: 60 * 1000,
+  })
+  const isMemoryHubConnected = hubStatus?.connected === true
   const [sources, setSources] = useState<SourceListResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -31,6 +48,9 @@ export default function SourcesPage() {
     open: false,
     source: null
   })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
+  const [addToNotebookDialog, setAddToNotebookDialog] = useState<{open: boolean, sourceId?: string, sourceTitle?: string}>({open: false})
   const router = useRouter()
   const tableRef = useRef<HTMLTableElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -251,48 +271,102 @@ export default function SourcesPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex h-full items-center justify-center">
-          <LoadingSpinner />
-        </div>
-      </AppShell>
-    )
-  }
-
-  if (error) {
-    return (
-      <AppShell>
-        <div className="flex h-full items-center justify-center">
-          <p className="text-red-500">{error}</p>
-        </div>
-      </AppShell>
-    )
-  }
-
-  if (sources.length === 0) {
-    return (
-      <AppShell>
-        <EmptyState
-          icon={FileText}
-          title={t.sources.noSourcesYet}
-          description={t.sources.allSourcesDescShort}
-        />
-      </AppShell>
-    )
-  }
+  const filteredSources = sources.filter(s =>
+    !searchQuery || s.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <AppShell>
       <div className="flex flex-col h-full w-full max-w-none px-6 py-6">
-        <div className="mb-6 flex-shrink-0">
-          <h1 className="text-3xl font-bold">{t.sources.allSources}</h1>
+        <div className="mb-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            {fromNotebook && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/notebooks/${fromNotebook}`)}
+                className="h-8 px-2"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                {t.common.back}
+              </Button>
+            )}
+            <h1 className="text-3xl font-bold">{t.navigation?.collect || t.sources.allSources}</h1>
+          </div>
           <p className="mt-2 text-muted-foreground">
             {t.sources.allSourcesDesc}
           </p>
         </div>
 
+        {/* Tabs: Sources | Memories */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'sources' | 'memories')} className="flex flex-col flex-1 min-h-0">
+          <TabsList className="mb-4 w-fit flex-shrink-0">
+            <TabsTrigger value="sources" className="gap-2">
+              <FileText className="h-4 w-4" />
+              {t.navigation.sources}
+            </TabsTrigger>
+            {isMemoryHubConnected && (
+              <TabsTrigger value="memories" className="gap-2">
+                <Brain className="h-4 w-4" />
+                {t.memories?.browseTitle || 'Memories'}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="memories" className="flex-1 min-h-0 mt-0">
+            {isMemoryHubConnected ? (
+              <MemoryTimeline />
+            ) : (
+              <div className="text-center py-16 text-muted-foreground">
+                <p className="text-sm">
+                  {t.memories?.hubOffline || 'Memory Hub is not connected.'}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sources" className="flex-1 min-h-0 mt-0">
+            {loading ? (
+              <div className="flex h-64 items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            ) : error ? (
+              <div className="flex h-64 items-center justify-center">
+                <p className="text-red-500">{error}</p>
+              </div>
+            ) : sources.length === 0 ? (
+              <EmptyState
+                icon={FileText}
+                title={t.sources.noSourcesYet}
+                description={t.sources.allSourcesDescShort}
+              />
+            ) : (
+              <>
+        <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t.sources?.searchSources || 'Search sources...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+        {selectedSourceIds.size > 0 && (
+          <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20 flex-shrink-0">
+            <span className="text-sm font-medium">
+              {t.sources?.selectedCount?.replace('{count}', selectedSourceIds.size.toString()) || `${selectedSourceIds.size} selected`}
+            </span>
+            <Button size="sm" onClick={() => setAddToNotebookDialog({open: true})}>
+              <BookOpen className="h-3.5 w-3.5 mr-1" />
+              {t.sources?.addToNotebook || 'Add to Notebook'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedSourceIds(new Set())}>
+              {t.common.cancel}
+            </Button>
+          </div>
+        )}
         <div ref={scrollContainerRef} className="flex-1 rounded-md border overflow-auto">
           <table
             ref={tableRef}
@@ -300,6 +374,7 @@ export default function SourcesPage() {
             className="w-full min-w-[800px] outline-none table-fixed"
           >
             <colgroup>
+              <col className="w-[50px]" />
               <col className="w-[120px]" />
               <col className="w-auto" />
               <col className="w-[140px]" />
@@ -309,6 +384,18 @@ export default function SourcesPage() {
             </colgroup>
             <thead className="sticky top-0 bg-background z-10">
               <tr className="border-b bg-muted/50">
+                <th className="h-12 px-4 text-center align-middle">
+                  <Checkbox
+                    checked={filteredSources.length > 0 && selectedSourceIds.size === filteredSources.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedSourceIds(new Set(filteredSources.map(s => s.id)))
+                      } else {
+                        setSelectedSourceIds(new Set())
+                      }
+                    }}
+                  />
+                </th>
                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
                   {t.common.type}
                 </th>
@@ -346,7 +433,7 @@ export default function SourcesPage() {
               </tr>
             </thead>
             <tbody>
-              {sources.map((source, index) => (
+              {filteredSources.map((source, index) => (
                 <tr
                   key={source.id}
                   onClick={() => handleRowClick(index, source.id)}
@@ -358,6 +445,21 @@ export default function SourcesPage() {
                       : "hover:bg-muted/50"
                   )}
                 >
+                  <td className="h-12 px-4 text-center">
+                    <Checkbox
+                      checked={selectedSourceIds.has(source.id)}
+                      onCheckedChange={(checked) => {
+                        const next = new Set(selectedSourceIds)
+                        if (checked) {
+                          next.add(source.id)
+                        } else {
+                          next.delete(source.id)
+                        }
+                        setSelectedSourceIds(next)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </td>
                   <td className="h-12 px-4">
                     <div className="flex items-center gap-2">
                       {getSourceIcon(source)}
@@ -396,6 +498,18 @@ export default function SourcesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAddToNotebookDialog({open: true, sourceId: source.id, sourceTitle: source.title || undefined})
+                      }}
+                      className="text-primary hover:text-primary"
+                      title={t.sources?.addToNotebook || 'Add to Notebook'}
+                    >
+                      <BookOpen className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={(e) => handleDeleteClick(e, source)}
                       className="text-destructive hover:text-destructive"
                     >
@@ -406,7 +520,7 @@ export default function SourcesPage() {
               ))}
               {loadingMore && (
                 <tr>
-                  <td colSpan={6} className="h-16 text-center">
+                  <td colSpan={7} className="h-16 text-center">
                     <div className="flex items-center justify-center">
                       <LoadingSpinner />
                       <span className="ml-2 text-muted-foreground">{t.sources.loadingMore}</span>
@@ -417,7 +531,19 @@ export default function SourcesPage() {
             </tbody>
           </table>
         </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
+
+      <AddToNotebookDialog
+        open={addToNotebookDialog.open}
+        onOpenChange={(open) => setAddToNotebookDialog(prev => ({...prev, open}))}
+        sourceId={addToNotebookDialog.sourceId}
+        sourceIds={selectedSourceIds.size > 0 ? Array.from(selectedSourceIds) : undefined}
+        sourceTitle={addToNotebookDialog.sourceTitle}
+      />
 
       <ConfirmDialog
         open={deleteDialog.open}

@@ -23,7 +23,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
-  Unlink
+  Unlink,
+  Brain
 } from 'lucide-react'
 import { useSourceStatus } from '@/lib/hooks/use-sources'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -49,6 +50,7 @@ const SOURCE_TYPE_ICONS = {
   link: ExternalLink,
   upload: Upload,
   text: FileText,
+  memory: Brain,
 } as const
 
 const getStatusConfig = (t: TranslationKeys) => ({
@@ -100,8 +102,9 @@ function isSourceStatus(status: unknown): status is SourceStatus {
   return typeof status === 'string' && ['new', 'queued', 'running', 'completed', 'failed'].includes(status)
 }
 
-function getSourceType(source: SourceListResponse): 'link' | 'upload' | 'text' {
+function getSourceType(source: SourceListResponse): 'link' | 'upload' | 'text' | 'memory' {
   // Determine type based on asset information
+  if (source.asset?.memory_ref) return 'memory'
   if (source.asset?.url) return 'link'
   if (source.asset?.file_path) return 'upload'
   return 'text'
@@ -240,7 +243,7 @@ export function SourceCard({
             {/* Title */}
             <div className={cn('mb-1.5', !isCompleted && 'mb-1')}>
               <h4
-                className="text-sm font-medium leading-tight line-clamp-2 break-all"
+                className="text-xs font-medium leading-tight line-clamp-2 break-all"
                 title={title}
               >
                 {title}
@@ -257,9 +260,18 @@ export function SourceCard({
             {/* Metadata badges */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Source type badge */}
-              <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                <SourceTypeIcon className="h-3 w-3" />
-                {sourceType === 'link' ? t.sources.addUrl : sourceType === 'upload' ? t.sources.uploadFile : t.sources.enterText}
+              <Badge
+                variant={sourceType === 'memory' ? 'default' : 'secondary'}
+                className={cn(
+                  "text-[10px] flex items-center gap-1 px-1.5 py-0",
+                  sourceType === 'memory' && 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                )}
+              >
+                <SourceTypeIcon className="h-2.5 w-2.5" />
+                {sourceType === 'memory' ? (t.sources?.memoryType || 'Memory')
+                  : sourceType === 'link' ? (t.sources?.linkType || t.sources.addUrl)
+                  : sourceType === 'upload' ? (t.sources?.fileType || t.sources.uploadFile)
+                  : (t.sources?.textType || t.sources.enterText)}
               </Badge>
 
               {isCompleted && source.insights_count > 0 && (

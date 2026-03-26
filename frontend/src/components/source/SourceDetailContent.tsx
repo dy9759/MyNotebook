@@ -11,6 +11,7 @@ import { transformationsApi } from '@/lib/api/transformations'
 import { embeddingApi } from '@/lib/api/embedding'
 import { SourceDetailResponse } from '@/lib/types/api'
 import { Transformation } from '@/lib/types/transformations'
+import { getTransformationLabel } from '@/lib/utils/transformation-labels'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { InlineEdit } from '@/components/common/InlineEdit'
 import { Button } from '@/components/ui/button'
@@ -590,7 +591,7 @@ export function SourceDetailContent({
                       <SelectContent>
                         {transformations.map((trans) => (
                           <SelectItem key={trans.id} value={trans.id}>
-                            {trans.title || trans.name}
+                            {getTransformationLabel(trans.title || trans.name, language)}
                           </SelectItem>
                         ))}
                       </SelectContent>

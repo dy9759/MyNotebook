@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ChevronLeft, LucideIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface CollapsibleColumnProps {
@@ -12,6 +12,8 @@ interface CollapsibleColumnProps {
   collapsedIcon: LucideIcon
   collapsedLabel: string
   children: ReactNode
+  /** Direction the column collapses toward. 'left' for left-side columns, 'right' for right-side columns. */
+  direction?: 'left' | 'right'
 }
 
 export function CollapsibleColumn({
@@ -20,8 +22,10 @@ export function CollapsibleColumn({
   collapsedIcon: CollapsedIcon,
   collapsedLabel,
   children,
+  direction = 'left',
 }: CollapsibleColumnProps) {
   const isCJK = /[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/.test(collapsedLabel);
+  const tooltipSide = direction === 'left' ? 'right' : 'left'
 
   if (isCollapsed) {
     return (
@@ -50,7 +54,7 @@ export function CollapsibleColumn({
               </div>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">
+          <TooltipContent side={tooltipSide}>
             <p>Expand {collapsedLabel}</p>
           </TooltipContent>
         </Tooltip>
@@ -66,7 +70,9 @@ export function CollapsibleColumn({
 }
 
 // Factory function to create a collapse button for card headers
-export function createCollapseButton(onToggle: () => void, label: string) {
+export function createCollapseButton(onToggle: () => void, label: string, direction: 'left' | 'right' = 'left') {
+  const ChevronIcon = direction === 'left' ? ChevronLeft : ChevronRight
+
   return (
     <div className="hidden lg:block">
       <TooltipProvider>
@@ -82,7 +88,7 @@ export function createCollapseButton(onToggle: () => void, label: string) {
               className="h-7 w-7 hover:bg-accent"
               aria-label={`Collapse ${label}`}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

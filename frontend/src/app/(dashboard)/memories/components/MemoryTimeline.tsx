@@ -1,12 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Brain, Globe, Terminal, Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Brain, Globe, Terminal, Loader2, Search, BookOpen } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { memoriesApi } from '@/lib/api/memories'
+import { useMemorySearch } from '@/lib/hooks/use-memories'
+import { AddMemoryToNotebookDialog } from '@/components/sources/AddMemoryToNotebookDialog'
 
 type OriginFilter = 'all' | 'browser' | 'claude_code' | 'evermemo'
 
@@ -58,15 +62,36 @@ export function MemoryTimeline() {
   const { t } = useTranslation()
   const [originFilter, setOriginFilter] = useState<OriginFilter>('all')
   const [activeType, setActiveType] = useState<string>('episodic_memory')
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [addToNotebookDialog, setAddToNotebookDialog] = useState<{open: boolean, memoryId?: string, memoryTitle?: string}>({open: false})
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(searchInput.trim())
+    }, 400)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchInput])
 
   // Fetch memories directly from Memory Hub
-  const { data, isLoading } = useQuery({
+  const { data: browseData, isLoading } = useQuery({
     queryKey: ['memories', 'browse', activeType],
     queryFn: () => memoriesApi.browse({ memory_type: activeType, limit: 50 }),
     staleTime: 30 * 1000,
   })
 
-  const memories = data?.memories || []
+  // Search query hook
+  const searchResult = useMemorySearch(
+    debouncedQuery.length >= 2 ? debouncedQuery : '',
+    { memory_types: activeType, retrieve_method: 'hybrid', top_k: 30 }
+  )
+
+  // Merge browse and search results
+  const isSearching = debouncedQuery.length >= 2
+  const memories = isSearching ? (searchResult.data?.memories || []) : (browseData?.memories || [])
+  const isLoadingMemories = isSearching ? searchResult.isLoading : isLoading
 
   // Apply origin filter
   const filteredMemories = useMemo(() => {
@@ -87,6 +112,18 @@ export function MemoryTimeline() {
     { value: 'evermemo', label: t.memories?.originEvermemo || 'EverMemo', icon: <Brain className="h-3.5 w-3.5" /> },
   ]
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
   return (
     <div className="space-y-6">
       {/* Memory type tabs */}
@@ -101,6 +138,17 @@ export function MemoryTimeline() {
             {typeLabels[type] || type}
           </Button>
         ))}
+      </div>
+
+      {/* Search input */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={t.memories?.searchPlaceholder || 'Search memories...'}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Origin filter */}
@@ -119,15 +167,29 @@ export function MemoryTimeline() {
         ))}
       </div>
 
+      {/* Batch action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 p-2 rounded-lg bg-primary/5 border border-primary/20">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <Button size="sm" onClick={() => setAddToNotebookDialog({open: true})}>
+            <BookOpen className="h-3.5 w-3.5 mr-1" />
+            Add to Notebook
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            Cancel
+          </Button>
+        </div>
+      )}
+
       {/* Loading */}
-      {isLoading && (
+      {isLoadingMemories && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {/* Empty state */}
-      {!isLoading && filteredMemories.length === 0 && (
+      {!isLoadingMemories && filteredMemories.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <Brain className="h-10 w-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">
@@ -137,7 +199,7 @@ export function MemoryTimeline() {
       )}
 
       {/* Timeline */}
-      {!isLoading && filteredMemories.length > 0 && (
+      {!isLoadingMemories && filteredMemories.length > 0 && (
         <div className="relative ml-4">
           {/* Vertical line */}
           <div className="absolute left-0 top-0 bottom-0 w-px bg-border" />
@@ -149,14 +211,32 @@ export function MemoryTimeline() {
                 <div className="absolute left-0 top-2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background" />
 
                 <div className="border rounded-lg p-4 hover:border-primary/50 hover:bg-accent/30 transition-colors">
-                  {/* Header: title + origin */}
+                  {/* Header: checkbox + title + origin + add button */}
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-sm font-medium line-clamp-2">
-                      {memory.title || 'Untitled'}
-                    </h3>
-                    {memory.source_origin && (
-                      <OriginBadge origin={memory.source_origin} />
-                    )}
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={selectedIds.has(memory.id)}
+                        onCheckedChange={() => toggleSelection(memory.id)}
+                        className="mt-0.5"
+                      />
+                      <h3 className="text-sm font-medium line-clamp-2">
+                        {memory.title || 'Untitled'}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {memory.source_origin && (
+                        <OriginBadge origin={memory.source_origin} />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setAddToNotebookDialog({open: true, memoryId: memory.id, memoryTitle: memory.title})}
+                        title="Add to Notebook"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Summary */}
@@ -188,6 +268,15 @@ export function MemoryTimeline() {
           </div>
         </div>
       )}
+
+      {/* Add to Notebook Dialog */}
+      <AddMemoryToNotebookDialog
+        open={addToNotebookDialog.open}
+        onOpenChange={(open) => setAddToNotebookDialog(prev => ({...prev, open}))}
+        memoryIds={selectedIds.size > 0 ? Array.from(selectedIds) : (addToNotebookDialog.memoryId ? [addToNotebookDialog.memoryId] : [])}
+        memoryType={activeType}
+        title={addToNotebookDialog.memoryTitle}
+      />
     </div>
   )
 }

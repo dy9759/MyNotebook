@@ -29,49 +29,27 @@ import { useTranslation } from '@/lib/hooks/use-translation'
 import { Separator } from '@/components/ui/separator'
 import {
   Book,
-  Search,
   Mic,
-  Bot,
-  Shuffle,
   Settings,
   LogOut,
   ChevronLeft,
   Menu,
   FileText,
   Plus,
-  Wrench,
   Command,
-  Brain,
 } from 'lucide-react'
 
 const getNavigation = (t: TranslationKeys) => [
   {
-    title: t.navigation.collect,
-    items: [
-      { name: t.navigation.sources, href: '/sources', icon: FileText },
-    ],
-  },
-  {
     title: t.navigation.process,
     items: [
       { name: t.navigation.notebooks, href: '/notebooks', icon: Book },
-      { name: t.navigation.askAndSearch, href: '/search', icon: Search },
-      { name: t.memories?.browseTitle || 'Memories', href: '/memories', icon: Brain },
-    ],
-  },
-  {
-    title: t.navigation.create,
-    items: [
-      { name: t.navigation.podcasts, href: '/podcasts', icon: Mic },
     ],
   },
   {
     title: t.navigation.manage,
     items: [
-      { name: t.navigation.models, href: '/settings/api-keys', icon: Bot },
-      { name: t.navigation.transformations, href: '/transformations', icon: Shuffle },
       { name: t.navigation.settings, href: '/settings', icon: Settings },
-      { name: t.navigation.advanced, href: '/advanced', icon: Wrench },
     ],
   },
 ] as const
@@ -124,7 +102,7 @@ export function AppSidebar() {
             <div className="relative flex items-center justify-center w-full">
               <Image
                 src="/logo.svg"
-                alt="Open Notebook"
+                alt="SaySo Notebook"
                 width={32}
                 height={32}
                 className="transition-opacity group-hover:opacity-0"
